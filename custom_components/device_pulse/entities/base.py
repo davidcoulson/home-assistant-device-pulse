@@ -14,7 +14,7 @@ from custom_components.device_pulse.const import (
     ENTITY_ATTR_HOST,
     ENTITY_ATTR_HOST_SOURCE,
 )
-from custom_components.device_pulse.utils import IntegrationData
+from custom_components.device_pulse.utils import IntegrationData, device_unique_key
 
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -46,8 +46,7 @@ class BaseCoordinatorEntity(CoordinatorEntity[DevicePingCoordinator], abc.ABC):
         self._integration: IntegrationData = integration
 
         # Build unique_id based on identifier
-        device_id = next(iter(device.identifiers), (None, device.id))[1]
-        self._attr_unique_id = f"{DOMAIN}_{device_id}_{self._tag}"
+        self._attr_unique_id = f"{DOMAIN}_{device_unique_key(device)}_{self._tag}"
         self._attr_name = f"{device.name_by_user or device.name} {self._name_suffix}"
 
         self._configure()

@@ -43,6 +43,11 @@ async def async_get_integration_name(hass: HomeAssistant, domain: str) -> str:
     else:
         return integration.name
 
+def device_unique_key(device: dr.DeviceEntry) -> str:
+    """Return a stable key for a device (identifiers is an unordered set)."""
+    return min(device.identifiers, default=(None, device.id))[1]
+
+
 @dataclass
 class IntegrationData:
     """Holds integration data."""
@@ -146,6 +151,9 @@ def remove_config_entry_orphan_entities(
     entity_registry = er.async_get(hass)
     integration = config_entry.runtime_data.integration
     valid_unique_ids = [valid_entry.unique_id for valid_entry in entities]
+    # Devices whose host could not be resolved this time (e.g. a zeroconf query
+    # timeout) keep their entities instead of being treated as orphans
+    keep_prefixes = tuple(config_entry.runtime_data.unresolved_unique_prefixes)
 
     # Find all entities for this config entry that are not in the valid list
     orphan_entities = [
@@ -154,6 +162,7 @@ def remove_config_entry_orphan_entities(
         if (
             entity_entry.config_entry_id == config_entry.entry_id
             and entity_entry.unique_id not in valid_unique_ids
+            and not entity_entry.unique_id.startswith(keep_prefixes)
             and entity_entry.platform == DOMAIN
             and entity_entry.domain == domain
         )
