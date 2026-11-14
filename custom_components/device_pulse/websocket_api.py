@@ -129,7 +129,7 @@ async def ws_get_devices(
             continue
 
         device_id = entity_state.attributes.get(ENTITY_ATTR_DEVICE_ID)
-        device_entry = device_registry.devices.get(device_id)
+        device_entry = device_registry.async_get(device_id)
         device_name = device_entry.name_by_user or device_entry.name or "Unknown Device"
 
         integration_domain = entity_state.attributes.get(ENTITY_ATTR_INTEGRATION_DOMAIN)

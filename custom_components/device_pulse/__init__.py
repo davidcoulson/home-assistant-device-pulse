@@ -126,6 +126,7 @@ class ConfigEntryRuntimeData:
     integration: utils.IntegrationData
     monitored: dict[str, ConfigMonitoredDeviceData] = field(default_factory=dict)
     reload_task: asyncio.Task[Any] | None = None
+    unresolved_unique_prefixes: list[str] = field(default_factory=list)
 
 
 def _coerce_log_level(value: Any, default: int) -> int:
@@ -173,11 +174,27 @@ async def _async_handle_reset_total_failed_pings_service(
         if device_id in reset_devices:
             continue
 
+        # The entity's device may be a Device Pulse device (HA 2026.11+), not the
+        # monitored one: match monitored devices by shared identifiers/connections too
+        entity_device = dr.async_get(hass).async_get(device_id)
         for config_entry in hass.config_entries.async_entries(DOMAIN):
             runtime_data = getattr(config_entry, "runtime_data", None)
-            if (
-                runtime_data
-                and (monitored := runtime_data.monitored.get(device_id))
+            if not runtime_data or config_entry.entry_id != entity_entry.config_entry_id:
+                continue
+            if monitored := next(
+                (
+                    m
+                    for m in runtime_data.monitored.values()
+                    if m.device.id == device_id
+                    or (
+                        entity_device
+                        and (
+                            m.device.identifiers & entity_device.identifiers
+                            or m.device.connections & entity_device.connections
+                        )
+                    )
+                ),
+                None,
             ):
                 monitored.coordinator.reset_total_failed_pings(entity_id)
                 reset_devices.add(device_id)
@@ -426,6 +443,10 @@ async def async_setup_entry(
                 )
             else:
                 _LOGGER.warning("[%s] Could not extract Host for device [%s]",integration.friendly_name, device.name)
+                # Do not let orphan cleanup delete the entities of a device we merely failed to resolve
+                config_entry.runtime_data.unresolved_unique_prefixes.append(
+                    f"{DOMAIN}_{utils.device_unique_key(device)}_"
+                )
 
         for disabled_device in disabled_devices:
             _LOGGER.warning("[%s] Keep device [%s] disabled", integration.friendly_name, disabled_device.name)
@@ -516,6 +537,12 @@ async def _device_registry_updated(
         return
 
     if action == "remove":
+        # A monitored device was deleted (its own entry is not removed with it
+        # on HA 2026.11+): reload so its monitor and entities are cleaned up
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            runtime_data = getattr(entry, "runtime_data", None)
+            if runtime_data and device_id in runtime_data.monitored:
+                hass.config_entries.async_schedule_reload(entry.entry_id)
         return
 
     # Get device registry and device entry

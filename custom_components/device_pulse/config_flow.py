@@ -902,6 +902,8 @@ class DevicePingMonitorOptionsFlow(
                 [integration.friendly_name for integration in self.available_integrations.values()]
             )
             self.integration_selected = self.available_integrations.get(self.config_entry.data.get(CONF_INTEGRATION))
+            if self.integration_selected is None:
+                return self.async_abort(reason="integration_not_available")
             self.integration_device_selection_mode = self.config_entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL)
             self.integration_selected_devices = copy.deepcopy(self.config_entry.options.get(CONF_SELECTED_DEVICES, []))
 

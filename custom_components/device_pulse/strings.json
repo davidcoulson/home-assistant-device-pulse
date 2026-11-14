@@ -266,6 +266,7 @@
         },
         "abort": {
             "no_options_flow_available": "No options flow available for config entry",
+            "integration_not_available": "The monitored integration has no devices with a resolvable host",
             "unknown_config_entry_type": "Unknown config entry type"
         }
     },

@@ -121,9 +121,9 @@ class DevicePingCoordinator(DataUpdateCoordinator[PingResult]):
                 )
             self.failed_pings = 0
             self.failed_started_at = None
-            self.last_response_time = (
-                round(self.ping.data.get("avg"), 3) if self.ping.data else None
-            )
+            # PingDataSubProcess returns the average as a string
+            avg = self.ping.data.get("avg") if self.ping.data else None
+            self.last_response_time = round(float(avg), 3) if avg is not None else None
             _LOGGER.debug(
                 "[%s] Device [%s][%s] ping successful, response time: %sms",
                 self.integration.friendly_name,
